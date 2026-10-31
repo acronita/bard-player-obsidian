@@ -49,6 +49,8 @@ export class PlayerService {
 	private profile: UaProfile;
 	private webContentsId: number | null = null;
 	private lastRejectedUrl = "";
+	private loaded = false;
+	private readonly loadListeners: Array<() => void> = [];
 
 	/**
 	 * @param mainDoc the main window's document: the webview must never change window.
@@ -99,12 +101,28 @@ export class PlayerService {
 			const nav = e as Event & { isMainFrame?: boolean; isInPlace?: boolean };
 			if (nav.isMainFrame && !nav.isInPlace) this.ready = false;
 		});
+		const markLoaded = () => {
+			if (this.loaded) return;
+			this.loaded = true;
+			window.clearTimeout(loadTimeout);
+			this.reposition();
+			for (const l of this.loadListeners.splice(0)) l();
+		};
+		// did-stop-loading means resources are in; give YTM's app shell a beat to paint.
+		wv.addEventListener("did-stop-loading", () => window.setTimeout(markLoaded, 300));
+		const loadTimeout = window.setTimeout(markLoaded, 20000);
 		wv.addEventListener("console-message", (e) => {
 			const next = parseMessage((e as Event & { message?: unknown }).message);
 			if (next) this.setState(next);
 		});
 
 		window.addEventListener("resize", this.onWindowResize);
+	}
+
+	/** Runs `cb` once the first page load has finished (immediately if it already has). */
+	whenLoaded(cb: () => void): void {
+		if (this.loaded) cb();
+		else this.loadListeners.push(cb);
 	}
 
 	subscribe(listener: StateListener): () => void {
@@ -167,8 +185,10 @@ export class PlayerService {
 			this.host.setCssStyles({ left: OFFSCREEN_LEFT });
 			return;
 		}
+		// Until the first load finishes the page is a blank dark rectangle: keep it off-screen (at the
+		// right size, so the layout is ready) and let the view show its loading state instead.
 		this.host.setCssStyles({
-			left: `${r.left}px`,
+			left: this.loaded ? `${r.left}px` : OFFSCREEN_LEFT,
 			top: `${r.top}px`,
 			width: `${r.width}px`,
 			height: `${r.height}px`,
@@ -180,6 +200,7 @@ export class PlayerService {
 		window.removeEventListener("resize", this.onWindowResize);
 		this.listeners.clear();
 		this.pending.length = 0;
+		this.loadListeners.length = 0;
 		this.host.remove();
 	}
 

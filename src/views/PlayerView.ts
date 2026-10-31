@@ -52,8 +52,13 @@ export class PlayerView extends ItemView {
 			return;
 		}
 
-		this.surface = this.contentEl.createDiv({ cls: "bard-player-surface" });
-		player.attach(this.surface);
+		const surface = this.contentEl.createDiv({ cls: "bard-player-surface" });
+		const loading = surface.createDiv({ cls: "bard-player-loading" });
+		loading.createDiv({ cls: "bard-spinner" });
+		loading.createDiv({ text: "Loading YouTube Music…" });
+		player.whenLoaded(() => surface.addClass("is-loaded"));
+		this.surface = surface;
+		player.attach(surface);
 	}
 
 	onResize(): void {
