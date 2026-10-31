@@ -3,6 +3,8 @@ import { VIEW_TYPE_MINI, VIEW_TYPE_PLAYER } from "./constants";
 import { getMainBrowserWindow, getRemote } from "./electron/remote";
 import { ThumbarController } from "./os/ThumbarController";
 import { PlayerService } from "./player/PlayerService";
+import { BardSettings, normalizeSettings } from "./settings";
+import { BardSettingTab } from "./SettingsTab";
 import { UA_MODES, UaMode, nextUaMode } from "./player/userAgent";
 import { MiniPlayerView } from "./views/MiniPlayerView";
 import { PlayerView } from "./views/PlayerView";
@@ -12,8 +14,13 @@ const UA_MODE_KEY = "bard-player-ua-mode";
 export default class BardPlayerPlugin extends Plugin {
 	private player: PlayerService | null = null;
 	private thumbar: ThumbarController | null = null;
+	private readonly settingsListeners = new Set<(s: BardSettings) => void>();
+	settings: BardSettings = normalizeSettings(null);
 
-	onload(): void {
+	async onload(): Promise<void> {
+		this.settings = normalizeSettings(await this.loadData());
+		this.addSettingTab(new BardSettingTab(this.app, this));
+
 		this.registerView(VIEW_TYPE_PLAYER, (leaf) => new PlayerView(leaf, this));
 		this.registerView(VIEW_TYPE_MINI, (leaf) => new MiniPlayerView(leaf, this));
 
@@ -48,6 +55,17 @@ export default class BardPlayerPlugin extends Plugin {
 		this.thumbar = null;
 		this.player?.destroy();
 		this.player = null;
+	}
+
+	async updateSettings(patch: Partial<BardSettings>): Promise<void> {
+		this.settings = { ...this.settings, ...patch };
+		await this.saveData(this.settings);
+		for (const listener of this.settingsListeners) listener(this.settings);
+	}
+
+	onSettingsChange(listener: (s: BardSettings) => void): () => void {
+		this.settingsListeners.add(listener);
+		return () => this.settingsListeners.delete(listener);
 	}
 
 	/** The webview is created on first use, so a vault that never opens the player pays nothing. */

@@ -84,6 +84,7 @@
 
 .bard-mini {
 	--bard-art: none;
+	--bard-art-opacity: 0.6;
 	position: relative;
 	display: flex;
 	align-items: center;
@@ -104,19 +105,35 @@
 	background-size: cover;
 	background-position: center;
 	filter: blur(32px) saturate(1.4);
-	opacity: 0.35;
+	opacity: var(--bard-art-opacity);
 	transition: opacity 0.4s ease;
 }
 
-.bard-mini:not(.has-art) .bard-mini-backdrop {
+/* Bright covers lift the wash to mid-gray and swallow muted text; keep it dark. */
+.theme-dark .bard-mini-backdrop {
+	filter: blur(32px) saturate(1.4) brightness(0.45);
+}
+
+.bard-mini:not(.has-art) .bard-mini-backdrop,
+.bard-mini:not(.bg-artwork) .bard-mini-backdrop {
 	opacity: 0;
+}
+
+.bard-mini.bg-black {
+	background: #000;
+	--text-normal: #e6e6e6;
+	--text-muted: #a6a6a6;
+	--text-faint: #6e6e6e;
+	--background-modifier-hover: rgba(255, 255, 255, 0.08);
+	--background-modifier-border-hover: rgba(255, 255, 255, 0.2);
 }
 
 .bard-mini-art {
 	position: relative;
 	flex: 0 0 auto;
-	width: 64px;
-	height: 64px;
+	/* Measured from the text column (see MiniControls) so the cover spans title to controls. */
+	width: var(--bard-body-h, 64px);
+	height: var(--bard-body-h, 64px);
 	border-radius: var(--radius-m);
 	overflow: hidden;
 	background: var(--background-modifier-hover);
@@ -178,7 +195,7 @@
 	gap: var(--size-2-3);
 	font-size: var(--font-ui-smaller);
 	font-variant-numeric: tabular-nums;
-	color: var(--text-faint);
+	color: var(--text-normal);
 }
 
 .bard-mini-progress {
@@ -186,7 +203,7 @@
 	flex: 1 1 auto;
 	height: 4px;
 	border-radius: 2px;
-	background: var(--background-modifier-border);
+	background: var(--background-modifier-border-hover);
 	cursor: pointer;
 }
 
@@ -215,6 +232,13 @@
 	display: flex;
 	align-items: center;
 	gap: var(--size-2-1);
+}
+
+/* Default icon gray washes out over the artwork backdrop. */
+.bard-mini-btn {
+	--icon-color: var(--text-normal);
+	--icon-opacity: 1;
+	color: var(--text-normal);
 }
 
 .bard-mini-btn.is-active {
@@ -294,10 +318,5 @@
 	.bard-mini-elapsed,
 	.bard-mini-total {
 		display: none;
-	}
-
-	.bard-mini-art {
-		width: 48px;
-		height: 48px;
 	}
 }

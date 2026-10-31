@@ -29,7 +29,7 @@ export class MiniPlayerView extends ItemView {
 	async onOpen(): Promise<void> {
 		this.contentEl.empty();
 		this.contentEl.addClass("bard-mini-view");
-		this.controls = new MiniControls(this.contentEl, this.plugin.getPlayer(), () => void this.plugin.activatePlayerView());
+		this.controls = new MiniControls(this.contentEl, this.plugin.getPlayer(), this.plugin, () => void this.plugin.activatePlayerView());
 	}
 
 	async onClose(): Promise<void> {
