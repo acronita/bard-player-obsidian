@@ -1,0 +1,9 @@
+{
+  "id": "bard-player-spike",
+  "name": "Bard Player Spike (F0)",
+  "version": "0.0.0",
+  "minAppVersion": "1.6.6",
+  "description": "Throwaway feasibility spike for Bard Player. Not for distribution.",
+  "author": "is-cout",
+  "isDesktopOnly": true
+}

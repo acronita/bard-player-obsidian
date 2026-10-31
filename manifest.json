@@ -1,0 +1,9 @@
+{
+  "id": "bard-player",
+  "name": "Bard Player",
+  "version": "0.1.0",
+  "minAppVersion": "1.6.6",
+  "description": "YouTube Music player inside Obsidian, with a mini player and Windows taskbar controls.",
+  "author": "is-cout",
+  "isDesktopOnly": true
+}
