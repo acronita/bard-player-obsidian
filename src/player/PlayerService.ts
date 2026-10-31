@@ -15,6 +15,12 @@ interface WebviewTag extends HTMLElement {
 
 type StateListener = (state: PlayerState) => void;
 
+/** Volume kept by the plugin: YTM only remembers changes made through its own slider. */
+export interface VolumeStore {
+	load(): number | null;
+	save(volume: number): void;
+}
+
 const OFFSCREEN_LEFT = "-10000px";
 
 function osKind(): OsKind {
@@ -51,6 +57,8 @@ export class PlayerService {
 	private lastRejectedUrl = "";
 	private loaded = false;
 	private readonly loadListeners: Array<() => void> = [];
+	/** Whether the stored volume was applied to the current page; YTM resets it on each full load. */
+	private volumeRestored = false;
 
 	/**
 	 * @param mainDoc the main window's document: the webview must never change window.
@@ -60,6 +68,7 @@ export class PlayerService {
 		mainDoc: Document,
 		uaMode: UaMode,
 		private readonly onSignInRejected: () => void,
+		private readonly volumeStore: VolumeStore,
 	) {
 		this.profile = profileFor(uaMode);
 		const ua = this.profile.userAgent;
@@ -99,7 +108,10 @@ export class PlayerService {
 		// A full page load drops the bridge; queue commands until it is re-injected.
 		wv.addEventListener("did-start-navigation", (e) => {
 			const nav = e as Event & { isMainFrame?: boolean; isInPlace?: boolean };
-			if (nav.isMainFrame && !nav.isInPlace) this.ready = false;
+			if (nav.isMainFrame && !nav.isInPlace) {
+				this.ready = false;
+				this.volumeRestored = false;
+			}
 		});
 		const markLoaded = () => {
 			if (this.loaded) return;
@@ -236,7 +248,24 @@ export class PlayerService {
 	}
 
 	private setState(next: PlayerState): void {
+		const prev = this.state;
 		this.state = next;
+		this.syncVolume(prev, next);
 		for (const l of this.listeners) l(next);
+	}
+
+	/**
+	 * Once media is loaded, push the stored volume into the page; after that, store every change
+	 * (from our slider or YTM's). Saving before the restore would overwrite it with YTM's default.
+	 */
+	private syncVolume(prev: PlayerState, next: PlayerState): void {
+		if (next.status === "idle") return;
+		if (!this.volumeRestored) {
+			this.volumeRestored = true;
+			const stored = this.volumeStore.load();
+			if (stored !== null && stored !== next.volume) this.send({ name: "volume", value: stored });
+			return;
+		}
+		if (next.volume !== prev.volume) this.volumeStore.save(next.volume);
 	}
 }
