@@ -5,7 +5,14 @@
  * Pure functions, unit-tested.
  */
 
-export type UaMode = "chrome" | "firefox";
+export type UaMode = "chrome" | "firefox" | "electron";
+
+/** Order in which identities are tried when Google rejects the sign-in. */
+export const UA_MODES: readonly UaMode[] = ["chrome", "firefox", "electron"];
+
+export function nextUaMode(mode: UaMode): UaMode | null {
+	return UA_MODES[UA_MODES.indexOf(mode) + 1] ?? null;
+}
 export type OsKind = "windows" | "mac" | "linux";
 
 /** CDP Emulation.UserAgentMetadata. */
@@ -26,6 +33,15 @@ export interface UaProfile {
 	userAgent: string;
 	/** null = send no client hints (Firefox does not have them). */
 	metadata: UaMetadata | null;
+	/** false = no DevTools override at all: the embedded browser's own client hints are used. */
+	emulate: boolean;
+}
+
+export interface EngineVersions {
+	/** e.g. "120.0.6099.291" */
+	chrome: string;
+	/** e.g. "28.3.3" */
+	electron: string;
 }
 
 const DAY = 86_400_000;
@@ -63,14 +79,22 @@ const HINT_PLATFORM: Record<OsKind, { platform: string; platformVersion: string 
 };
 
 /**
- * @param actualChrome major version of the embedded Chromium, so we never claim to be older than it.
+ * @param engine versions of the embedded Chromium/Electron. We never claim to be older than it, and
+ *   "electron" mode reports it as is (Pear Desktop's retry fallback).
  */
-export function buildProfile(mode: UaMode, os: OsKind, now: number, actualChrome = 0): UaProfile {
+export function buildProfile(mode: UaMode, os: OsKind, now: number, engine: EngineVersions): UaProfile {
+	if (mode === "electron") {
+		return {
+			userAgent: `Mozilla/5.0 (${CHROME_OS[os]}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${engine.chrome} Electron/${engine.electron} Safari/537.36`,
+			metadata: null,
+			emulate: false,
+		};
+	}
 	if (mode === "firefox") {
 		const v = firefoxVersionAt(now);
-		return { userAgent: `Mozilla/5.0 (${FIREFOX_OS[os]}; rv:${v}.0) Gecko/20100101 Firefox/${v}.0`, metadata: null };
+		return { userAgent: `Mozilla/5.0 (${FIREFOX_OS[os]}; rv:${v}.0) Gecko/20100101 Firefox/${v}.0`, metadata: null, emulate: true };
 	}
-	const v = chromeVersionAt(now, actualChrome);
+	const v = chromeVersionAt(now, parseInt(engine.chrome, 10) || 0);
 	const full = `${v}.0.0.0`;
 	const brands = [
 		{ brand: "Google Chrome", version: String(v) },
@@ -90,6 +114,7 @@ export function buildProfile(mode: UaMode, os: OsKind, now: number, actualChrome
 			bitness: "64",
 			wow64: false,
 		},
+		emulate: true,
 	};
 }
 

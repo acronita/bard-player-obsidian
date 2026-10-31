@@ -1,6 +1,6 @@
 import { Platform } from "obsidian";
 import { PARTITION, YTM_URL } from "../constants";
-import { overrideUserAgent, routePopupsToBrowser, setPartitionUserAgent } from "../electron/remote";
+import { clearUserAgentOverride, overrideUserAgent, routePopupsToBrowser, setPartitionUserAgent } from "../electron/remote";
 import { INJECT_SRC } from "./inject";
 import { Command, EMPTY_STATE, PlayerState, parseMessage } from "./protocol";
 import { OsKind, UaMode, UaProfile, buildProfile, isSignInRejected } from "./userAgent";
@@ -22,8 +22,8 @@ function osKind(): OsKind {
 }
 
 function profileFor(mode: UaMode): UaProfile {
-	const actualChrome = parseInt(process.versions.chrome ?? "0", 10) || 0;
-	return buildProfile(mode, osKind(), Date.now(), actualChrome);
+	const engine = { chrome: process.versions.chrome ?? "120.0.0.0", electron: process.versions.electron ?? "28.0.0" };
+	return buildProfile(mode, osKind(), Date.now(), engine);
 }
 
 /**
@@ -48,6 +48,7 @@ export class PlayerService {
 
 	private profile: UaProfile;
 	private webContentsId: number | null = null;
+	private lastRejectedUrl = "";
 
 	/**
 	 * @param mainDoc the main window's document: the webview must never change window.
@@ -85,8 +86,13 @@ export class PlayerService {
 			void this.inject();
 		});
 		wv.addEventListener("did-navigate", (e) => {
-			if (isSignInRejected((e as Event & { url?: string }).url ?? "")) this.onSignInRejected();
+			this.checkSignIn((e as Event & { url?: string }).url);
 			void this.inject();
+		});
+		// Google's sign-in flow is itself a SPA: the rejection page can arrive as an in-page navigation.
+		wv.addEventListener("did-navigate-in-page", (e) => {
+			const nav = e as Event & { url?: string; isMainFrame?: boolean };
+			if (nav.isMainFrame !== false) this.checkSignIn(nav.url);
 		});
 		// A full page load drops the bridge; queue commands until it is re-injected.
 		wv.addEventListener("did-start-navigation", (e) => {
@@ -178,7 +184,22 @@ export class PlayerService {
 
 	private async applyProfile(): Promise<void> {
 		if (this.webContentsId === null) return;
-		await overrideUserAgent(this.webContentsId, this.profile.userAgent, this.profile.metadata);
+		if (!this.profile.emulate) {
+			clearUserAgentOverride(this.webContentsId);
+			console.debug("[bard-player] identity: embedded browser", this.profile.userAgent);
+			return;
+		}
+		const ok = await overrideUserAgent(this.webContentsId, this.profile.userAgent, this.profile.metadata);
+		console.debug(`[bard-player] identity override ${ok ? "applied" : "FAILED"}:`, this.profile.userAgent);
+	}
+
+	private checkSignIn(url: string | undefined): void {
+		if (!url?.startsWith("https://accounts.google.com")) return;
+		console.debug("[bard-player] sign-in navigation:", url.split("?")[0]);
+		if (isSignInRejected(url) && url !== this.lastRejectedUrl) {
+			this.lastRejectedUrl = url;
+			this.onSignInRejected();
+		}
 	}
 
 	private async inject(): Promise<void> {

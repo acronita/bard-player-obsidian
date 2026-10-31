@@ -3,7 +3,7 @@ import { VIEW_TYPE_MINI, VIEW_TYPE_PLAYER } from "./constants";
 import { getMainBrowserWindow, getRemote } from "./electron/remote";
 import { ThumbarController } from "./os/ThumbarController";
 import { PlayerService } from "./player/PlayerService";
-import { UaMode } from "./player/userAgent";
+import { UA_MODES, UaMode, nextUaMode } from "./player/userAgent";
 import { MiniPlayerView } from "./views/MiniPlayerView";
 import { PlayerView } from "./views/PlayerView";
 
@@ -64,19 +64,24 @@ export default class BardPlayerPlugin extends Plugin {
 	}
 
 	private uaMode(): UaMode {
-		return this.app.loadLocalStorage(UA_MODE_KEY) === "firefox" ? "firefox" : "chrome";
+		const stored: unknown = this.app.loadLocalStorage(UA_MODE_KEY);
+		return UA_MODES.find((m) => m === stored) ?? "chrome";
 	}
 
-	/** Google refused the sign-in: fall back from the Chrome identity to a Firefox one and retry. */
+	/** Google refused the sign-in: move to the next browser identity and send the user back to retry. */
 	private onSignInRejected(): void {
-		if (this.uaMode() === "chrome") {
-			this.app.saveLocalStorage(UA_MODE_KEY, "firefox");
-			this.player?.setUaMode("firefox");
-			this.player?.goHome();
-			new Notice("Google rejected the sign-in. Bard Player switched browser identity; select sign in again.", 10000);
-		} else {
-			new Notice("Google rejected the sign-in again. Please report this on the Bard Player issue tracker.", 10000);
+		const current = this.uaMode();
+		const next = nextUaMode(current);
+		console.debug(`[bard-player] sign-in rejected with identity "${current}"`, next ? `-> trying "${next}"` : "-> none left");
+		if (!next) {
+			new Notice("Google rejected the sign-in with every browser identity Bard Player knows. Run \"reset sign-in browser identity\" to start over.", 15000);
+			return;
 		}
+		this.app.saveLocalStorage(UA_MODE_KEY, next);
+		this.player?.setUaMode(next);
+		this.player?.goHome();
+		const step = UA_MODES.indexOf(next) + 1;
+		new Notice(`Google rejected the sign-in. Bard Player switched browser identity (${step}/${UA_MODES.length}); select sign in again.`, 10000);
 	}
 
 	mainDocument(): Document {

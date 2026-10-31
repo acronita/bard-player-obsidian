@@ -29,6 +29,7 @@ interface WebContentsLike {
 	debugger: {
 		isAttached(): boolean;
 		attach(protocolVersion?: string): void;
+		detach(): void;
 		sendCommand(method: string, params?: object): Promise<unknown>;
 	};
 }
@@ -100,5 +101,15 @@ export async function overrideUserAgent(webContentsId: number, userAgent: string
 	} catch (err) {
 		console.warn("[bard-player] user agent override failed", err);
 		return false;
+	}
+}
+
+/** Drop any DevTools UA override (detaching clears the Emulation state). */
+export function clearUserAgentOverride(webContentsId: number): void {
+	try {
+		const wc = getRemote()?.webContents.fromId(webContentsId);
+		if (wc?.debugger.isAttached()) wc.debugger.detach();
+	} catch (err) {
+		console.warn("[bard-player] clearing user agent override failed", err);
 	}
 }
