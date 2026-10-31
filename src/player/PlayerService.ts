@@ -1,8 +1,9 @@
 import { Platform } from "obsidian";
 import { PARTITION, YTM_URL } from "../constants";
-import { routePopupsToBrowser, setPartitionUserAgent } from "../electron/remote";
+import { overrideUserAgent, routePopupsToBrowser, setPartitionUserAgent } from "../electron/remote";
 import { INJECT_SRC } from "./inject";
 import { Command, EMPTY_STATE, PlayerState, parseMessage } from "./protocol";
+import { OsKind, UaMode, UaProfile, buildProfile, isSignInRejected } from "./userAgent";
 
 interface WebviewTag extends HTMLElement {
 	getWebContentsId(): number;
@@ -16,14 +17,13 @@ type StateListener = (state: PlayerState) => void;
 
 const OFFSCREEN_LEFT = "-10000px";
 
-/** Plain Chrome UA (no `Electron/` or `obsidian/` tokens); Google sign-in rejects those. */
-function cleanUserAgent(): string {
-	const os = Platform.isWin
-		? "Windows NT 10.0; Win64; x64"
-		: Platform.isMacOS
-			? "Macintosh; Intel Mac OS X 10_15_7"
-			: "X11; Linux x86_64";
-	return `Mozilla/5.0 (${os}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Safari/537.36`;
+function osKind(): OsKind {
+	return Platform.isWin ? "windows" : Platform.isMacOS ? "mac" : "linux";
+}
+
+function profileFor(mode: UaMode): UaProfile {
+	const actualChrome = parseInt(process.versions.chrome ?? "0", 10) || 0;
+	return buildProfile(mode, osKind(), Date.now(), actualChrome);
 }
 
 /**
@@ -46,9 +46,20 @@ export class PlayerService {
 	private readonly onWindowResize = () => this.reposition();
 	state: PlayerState = EMPTY_STATE;
 
-	/** @param mainDoc the main window's document: the webview must never change window. */
-	constructor(mainDoc: Document) {
-		const ua = cleanUserAgent();
+	private profile: UaProfile;
+	private webContentsId: number | null = null;
+
+	/**
+	 * @param mainDoc the main window's document: the webview must never change window.
+	 * @param onSignInRejected called when Google shows its "browser may not be secure" page.
+	 */
+	constructor(
+		mainDoc: Document,
+		uaMode: UaMode,
+		private readonly onSignInRejected: () => void,
+	) {
+		this.profile = profileFor(uaMode);
+		const ua = this.profile.userAgent;
 		setPartitionUserAgent(PARTITION, ua);
 
 		this.host = mainDoc.body.createDiv({ cls: "bard-host" });
@@ -65,15 +76,18 @@ export class PlayerService {
 		}) as unknown as WebviewTag;
 		this.webview = wv;
 
-		let popupsRouted = false;
 		wv.addEventListener("dom-ready", () => {
-			if (!popupsRouted) {
-				popupsRouted = true;
-				routePopupsToBrowser(wv.getWebContentsId());
+			if (this.webContentsId === null) {
+				this.webContentsId = wv.getWebContentsId();
+				routePopupsToBrowser(this.webContentsId);
+				void this.applyProfile();
 			}
 			void this.inject();
 		});
-		wv.addEventListener("did-navigate", () => void this.inject());
+		wv.addEventListener("did-navigate", (e) => {
+			if (isSignInRejected((e as Event & { url?: string }).url ?? "")) this.onSignInRejected();
+			void this.inject();
+		});
 		// A full page load drops the bridge; queue commands until it is re-injected.
 		wv.addEventListener("did-start-navigation", (e) => {
 			const nav = e as Event & { isMainFrame?: boolean; isInPlace?: boolean };
@@ -101,6 +115,13 @@ export class PlayerService {
 		const arg = "value" in cmd ? cmd.value : null;
 		const code = `window.__bard ? window.__bard.cmd(${JSON.stringify(cmd.name)}, ${JSON.stringify(arg)}) : false`;
 		this.webview.executeJavaScript(code, true).catch((err) => console.warn("[bard-player] command failed", cmd, err));
+	}
+
+	/** Switch the browser identity presented to Google (applies to the next requests). */
+	setUaMode(mode: UaMode): void {
+		this.profile = profileFor(mode);
+		setPartitionUserAgent(PARTITION, this.profile.userAgent);
+		void this.applyProfile();
 	}
 
 	goBack(): void {
@@ -153,6 +174,11 @@ export class PlayerService {
 		this.listeners.clear();
 		this.pending.length = 0;
 		this.host.remove();
+	}
+
+	private async applyProfile(): Promise<void> {
+		if (this.webContentsId === null) return;
+		await overrideUserAgent(this.webContentsId, this.profile.userAgent, this.profile.metadata);
 	}
 
 	private async inject(): Promise<void> {

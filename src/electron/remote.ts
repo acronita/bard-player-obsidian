@@ -26,6 +26,11 @@ export interface BrowserWindowLike {
 
 interface WebContentsLike {
 	setWindowOpenHandler(handler: (details: { url: string }) => { action: "deny" | "allow" }): void;
+	debugger: {
+		isAttached(): boolean;
+		attach(protocolVersion?: string): void;
+		sendCommand(method: string, params?: object): Promise<unknown>;
+	};
 }
 
 export interface RemoteLike {
@@ -77,5 +82,23 @@ export function routePopupsToBrowser(webContentsId: number): void {
 		});
 	} catch (err) {
 		console.warn("[bard-player] setWindowOpenHandler failed", err);
+	}
+}
+
+/**
+ * Override the UA string and client hints (Sec-CH-UA headers + navigator.userAgentData) through the
+ * DevTools protocol; session.setUserAgent alone cannot change the hints. Overrides last while the
+ * debugger stays attached, i.e. for the guest's lifetime.
+ */
+export async function overrideUserAgent(webContentsId: number, userAgent: string, metadata: object | null): Promise<boolean> {
+	try {
+		const wc = getRemote()?.webContents.fromId(webContentsId);
+		if (!wc) return false;
+		if (!wc.debugger.isAttached()) wc.debugger.attach("1.3");
+		await wc.debugger.sendCommand("Emulation.setUserAgentOverride", metadata ? { userAgent, userAgentMetadata: metadata } : { userAgent });
+		return true;
+	} catch (err) {
+		console.warn("[bard-player] user agent override failed", err);
+		return false;
 	}
 }
