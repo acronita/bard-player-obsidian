@@ -135,7 +135,8 @@ export class PlayerService {
 	}
 
 	goHome(): void {
-		void this.webview.loadURL(YTM_URL);
+		// Interrupting an in-flight navigation rejects with ERR_ABORTED; the new load still proceeds.
+		this.webview.loadURL(YTM_URL).catch(() => {});
 	}
 
 	/** Lay the webview over `el`. Only one element is attached at a time. */
@@ -190,7 +191,8 @@ export class PlayerService {
 			return;
 		}
 		const ok = await overrideUserAgent(this.webContentsId, this.profile.userAgent, this.profile.metadata);
-		console.debug(`[bard-player] identity override ${ok ? "applied" : "FAILED"}:`, this.profile.userAgent);
+		if (ok) console.debug("[bard-player] identity override applied:", this.profile.userAgent);
+		else console.warn("[bard-player] identity override failed:", this.profile.userAgent);
 	}
 
 	private checkSignIn(url: string | undefined): void {

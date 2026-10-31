@@ -72,7 +72,7 @@ export default class BardPlayerPlugin extends Plugin {
 	private onSignInRejected(): void {
 		const current = this.uaMode();
 		const next = nextUaMode(current);
-		console.debug(`[bard-player] sign-in rejected with identity "${current}"`, next ? `-> trying "${next}"` : "-> none left");
+		console.warn(`[bard-player] sign-in rejected with identity "${current}" (engine Chrome ${process.versions.chrome})`, next ? `-> trying "${next}"` : "-> none left");
 		if (!next) {
 			new Notice("Google rejected the sign-in with every browser identity Bard Player knows. Run \"reset sign-in browser identity\" to start over.", 15000);
 			return;
