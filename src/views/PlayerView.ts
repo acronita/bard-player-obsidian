@@ -48,7 +48,7 @@ export class PlayerView extends ItemView {
 				this.leaf.detach();
 				void this.plugin.activatePlayerView();
 			});
-			this.fallback = new MiniControls(this.contentEl, player, () => {});
+			this.fallback = new MiniControls(this.contentEl, player, this.plugin, () => {});
 			return;
 		}
 

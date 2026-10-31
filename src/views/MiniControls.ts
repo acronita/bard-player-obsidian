@@ -1,6 +1,12 @@
 import { setIcon } from "obsidian";
 import { PlayerService } from "../player/PlayerService";
 import { PlayerState, formatTime, livePosition } from "../player/protocol";
+import { BardSettings, MINI_BACKDROPS } from "../settings";
+
+export interface MiniSettingsSource {
+	readonly settings: BardSettings;
+	onSettingsChange(listener: (s: BardSettings) => void): () => void;
+}
 
 /**
  * Compact remote-control UI for the player: artwork, title/artist, seekable progress,
@@ -22,6 +28,8 @@ export class MiniControls {
 	private readonly muteBtn: HTMLElement;
 	private readonly volume: HTMLInputElement;
 	private readonly unsubscribe: () => void;
+	private readonly unsubscribeSettings: () => void;
+	private readonly bodyObserver: ResizeObserver;
 	private readonly ticker: number;
 	private state: PlayerState;
 	private draggingVolume = false;
@@ -29,6 +37,7 @@ export class MiniControls {
 	constructor(
 		parent: HTMLElement,
 		private readonly player: PlayerService,
+		settings: MiniSettingsSource,
 		onOpenPlayer: () => void,
 	) {
 		this.state = player.state;
@@ -67,12 +76,20 @@ export class MiniControls {
 		this.volume.addEventListener("pointerup", () => (this.draggingVolume = false));
 		this.volume.addEventListener("input", () => player.send({ name: "volume", value: Number(this.volume.value) }));
 
+		// Size the cover to the text column so it lines up with the title and the controls.
+		this.bodyObserver = new ResizeObserver(() => this.root.setCssProps({ "--bard-body-h": `${body.offsetHeight}px` }));
+		this.bodyObserver.observe(body);
+
+		this.applySettings(settings.settings);
+		this.unsubscribeSettings = settings.onSettingsChange((s) => this.applySettings(s));
 		this.unsubscribe = player.subscribe((s) => this.render(s));
 		this.ticker = window.setInterval(() => this.renderProgress(), 500);
 	}
 
 	destroy(): void {
 		this.unsubscribe();
+		this.unsubscribeSettings();
+		this.bodyObserver.disconnect();
 		window.clearInterval(this.ticker);
 		this.root.remove();
 	}
@@ -82,6 +99,11 @@ export class MiniControls {
 		setIcon(btn, icon);
 		btn.addEventListener("click", onClick);
 		return btn;
+	}
+
+	private applySettings(s: BardSettings): void {
+		for (const b of MINI_BACKDROPS) this.root.toggleClass(`bg-${b}`, b === s.miniBackdrop);
+		this.root.setCssProps({ "--bard-art-opacity": String(s.miniArtworkOpacity / 100) });
 	}
 
 	private render(s: PlayerState): void {
