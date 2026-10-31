@@ -10,6 +10,7 @@ import { MiniPlayerView } from "./views/MiniPlayerView";
 import { PlayerView } from "./views/PlayerView";
 
 const UA_MODE_KEY = "bard-player-ua-mode";
+const VOLUME_KEY = "bard-player-volume";
 
 export default class BardPlayerPlugin extends Plugin {
 	private player: PlayerService | null = null;
@@ -71,7 +72,13 @@ export default class BardPlayerPlugin extends Plugin {
 	/** The webview is created on first use, so a vault that never opens the player pays nothing. */
 	getPlayer(): PlayerService {
 		if (!this.player) {
-			this.player = new PlayerService(this.mainDocument(), this.uaMode(), () => this.onSignInRejected());
+			this.player = new PlayerService(this.mainDocument(), this.uaMode(), () => this.onSignInRejected(), {
+				load: () => {
+					const stored: unknown = this.app.loadLocalStorage(VOLUME_KEY);
+					return typeof stored === "number" && stored >= 0 && stored <= 100 ? stored : null;
+				},
+				save: (volume) => this.app.saveLocalStorage(VOLUME_KEY, volume),
+			});
 			this.startThumbar(this.player);
 		}
 		return this.player;
