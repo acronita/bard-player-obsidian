@@ -1,1 +1,303 @@
 /* Bard Player styles */
+
+/* ---------- Webview host (overlay, see PlayerService) ---------- */
+
+.bard-host {
+	position: fixed;
+	left: -10000px;
+	top: 0;
+	width: 960px;
+	height: 640px;
+	z-index: var(--layer-popover);
+	overflow: hidden;
+}
+
+.bard-webview {
+	display: flex;
+	width: 100%;
+	height: 100%;
+	border: 0;
+}
+
+/* ---------- Full view ---------- */
+
+.workspace-leaf-content[data-type="bard-player-view"] .view-content.bard-player-view {
+	padding: 0;
+	overflow: hidden;
+}
+
+.bard-player-surface {
+	width: 100%;
+	height: 100%;
+	background: #030303; /* YouTube Music's page colour, avoids a flash while loading */
+}
+
+.bard-player-loading {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--size-4-3);
+	height: 100%;
+	color: #aaaaaa;
+	font-size: var(--font-ui-small);
+}
+
+.bard-player-surface.is-loaded .bard-player-loading {
+	display: none;
+}
+
+.bard-spinner {
+	width: 28px;
+	height: 28px;
+	border: 3px solid rgba(255, 255, 255, 0.15);
+	border-top-color: #ffffff;
+	border-radius: 50%;
+	animation: bard-spin 0.8s linear infinite;
+}
+
+@keyframes bard-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.bard-player-view.is-popout {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-3);
+	padding: var(--size-4-3);
+}
+
+.bard-popout-fallback {
+	color: var(--text-muted);
+	text-align: center;
+}
+
+/* ---------- Mini player ---------- */
+
+.workspace-leaf-content[data-type="bard-player-mini"] .view-content.bard-mini-view {
+	padding: 0;
+	container-type: size;
+	container-name: bard-mini;
+}
+
+.bard-mini {
+	--bard-art: none;
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-3);
+	height: 100%;
+	min-height: 0;
+	padding: var(--size-4-3);
+	overflow: hidden;
+	isolation: isolate;
+}
+
+/* Blurred artwork wash, in the spirit of compact browser media players. */
+.bard-mini-backdrop {
+	position: absolute;
+	inset: -20%;
+	z-index: -1;
+	background-image: var(--bard-art);
+	background-size: cover;
+	background-position: center;
+	filter: blur(32px) saturate(1.4);
+	opacity: 0.35;
+	transition: opacity 0.4s ease;
+}
+
+.bard-mini:not(.has-art) .bard-mini-backdrop {
+	opacity: 0;
+}
+
+.bard-mini-art {
+	position: relative;
+	flex: 0 0 auto;
+	width: 64px;
+	height: 64px;
+	border-radius: var(--radius-m);
+	overflow: hidden;
+	background: var(--background-modifier-hover);
+	box-shadow: var(--shadow-s);
+	cursor: pointer;
+}
+
+.bard-mini-art img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.bard-mini:not(.has-art) .bard-mini-art img {
+	display: none;
+}
+
+.bard-mini-art-fallback {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-faint);
+}
+
+.bard-mini.has-art .bard-mini-art-fallback {
+	display: none;
+}
+
+.bard-mini-body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-2);
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.bard-mini-title,
+.bard-mini-artist {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.bard-mini-title {
+	font-weight: var(--font-semibold);
+	color: var(--text-normal);
+}
+
+.bard-mini-artist {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.bard-mini-time {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-3);
+	font-size: var(--font-ui-smaller);
+	font-variant-numeric: tabular-nums;
+	color: var(--text-faint);
+}
+
+.bard-mini-progress {
+	position: relative;
+	flex: 1 1 auto;
+	height: 4px;
+	border-radius: 2px;
+	background: var(--background-modifier-border);
+	cursor: pointer;
+}
+
+.bard-mini-progress::before {
+	/* Larger hit area than the visible bar. */
+	content: "";
+	position: absolute;
+	inset: -6px 0;
+}
+
+.bard-mini-progress-fill {
+	width: 0;
+	height: 100%;
+	border-radius: inherit;
+	background: var(--interactive-accent);
+	transition: width 0.5s linear;
+}
+
+.bard-mini.is-idle .bard-mini-time,
+.bard-mini.is-ad .bard-mini-progress {
+	pointer-events: none;
+	opacity: 0.4;
+}
+
+.bard-mini-controls {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-1);
+}
+
+.bard-mini-btn.is-active {
+	color: var(--interactive-accent);
+}
+
+.bard-mini-btn.is-active svg {
+	fill: currentColor;
+}
+
+.bard-mini-btn.is-hidden {
+	display: none;
+}
+
+.bard-mini-play {
+	color: var(--text-normal);
+}
+
+.bard-mini-play svg {
+	width: var(--icon-l);
+	height: var(--icon-l);
+}
+
+.bard-mini-volume {
+	display: flex;
+	align-items: center;
+	flex: 1 1 auto;
+	min-width: 0;
+	margin-left: auto;
+}
+
+.bard-mini-volume input[type="range"] {
+	flex: 1 1 auto;
+	min-width: 40px;
+	max-width: 120px;
+}
+
+.bard-mini.is-idle .bard-mini-controls .bard-mini-btn:not(.bard-mini-play) {
+	opacity: 0.4;
+}
+
+/* Tall containers (e.g. a sidebar pane): stack with a large cover. */
+@container bard-mini (min-height: 280px) and (max-aspect-ratio: 1.2) {
+	.bard-mini {
+		flex-direction: column;
+		justify-content: center;
+		text-align: center;
+	}
+
+	.bard-mini-art {
+		width: min(100%, 100cqh - 170px, 320px);
+		height: auto;
+		aspect-ratio: 1;
+	}
+
+	.bard-mini-body {
+		width: 100%;
+		max-width: 360px;
+		flex: 0 0 auto;
+	}
+
+	.bard-mini-controls {
+		justify-content: center;
+		flex-wrap: wrap;
+	}
+
+	.bard-mini-volume {
+		flex-basis: 100%;
+		justify-content: center;
+		margin-left: 0;
+	}
+}
+
+/* Very narrow: drop the volume slider and times. */
+@container bard-mini (max-width: 260px) {
+	.bard-mini-volume input[type="range"],
+	.bard-mini-elapsed,
+	.bard-mini-total {
+		display: none;
+	}
+
+	.bard-mini-art {
+		width: 48px;
+		height: 48px;
+	}
+}
