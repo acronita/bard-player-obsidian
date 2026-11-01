@@ -1,6 +1,6 @@
 {
   "name": "bard-player",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Music streaming player for Obsidian with mini player and Windows taskbar controls",
   "main": "main.js",
   "type": "module",
