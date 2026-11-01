@@ -5,6 +5,8 @@ All notable changes to Bard Player. Versions follow [Semantic Versioning](https:
 ## Unreleased
 
 ### Added
+- **Mini player ribbon button** (headphones) next to the player one; it can be hidden with the
+  **Ribbon button** setting (Mini player).
 - **On startup** setting (Playback): when Obsidian opens, play the last track, playlist or radio
   again, either resuming where it stopped or from the beginning.
 

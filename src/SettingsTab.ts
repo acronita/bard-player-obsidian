@@ -42,6 +42,15 @@ export class BardSettingTab extends PluginSettingTab {
 		new Setting(containerEl).setName("Mini player").setHeading();
 
 		new Setting(containerEl)
+			.setName("Ribbon button")
+			.setDesc("Show a button in the left ribbon that opens the mini player.")
+			.addToggle((t) =>
+				t
+					.setValue(settings.miniRibbonIcon)
+					.onChange((value) => void this.plugin.updateSettings({ miniRibbonIcon: value })),
+			);
+
+		new Setting(containerEl)
 			.setName("Background")
 			.setDesc("What sits behind the mini player controls.")
 			.addDropdown((d) =>

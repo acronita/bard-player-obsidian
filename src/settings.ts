@@ -12,12 +12,15 @@ export interface BardSettings {
 	/** Strength of the blurred artwork wash, 0–100. */
 	miniArtworkOpacity: number;
 	startupPlayback: StartupPlayback;
+	/** Show the mini player button in the left ribbon. */
+	miniRibbonIcon: boolean;
 }
 
 export const DEFAULT_SETTINGS: BardSettings = {
 	miniBackdrop: "artwork",
 	miniArtworkOpacity: 60,
 	startupPlayback: "off",
+	miniRibbonIcon: true,
 };
 
 /** Merges stored data over the defaults, dropping anything malformed. */
@@ -28,5 +31,6 @@ export function normalizeSettings(raw: unknown): BardSettings {
 		? Math.min(100, Math.max(0, Math.round(data.miniArtworkOpacity)))
 		: DEFAULT_SETTINGS.miniArtworkOpacity;
 	const startup = STARTUP_PLAYBACKS.find((p) => p === data.startupPlayback) ?? DEFAULT_SETTINGS.startupPlayback;
-	return { miniBackdrop: backdrop, miniArtworkOpacity: opacity, startupPlayback: startup };
+	const ribbon = typeof data.miniRibbonIcon === "boolean" ? data.miniRibbonIcon : DEFAULT_SETTINGS.miniRibbonIcon;
+	return { miniBackdrop: backdrop, miniArtworkOpacity: opacity, startupPlayback: startup, miniRibbonIcon: ribbon };
 }
