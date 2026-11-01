@@ -2,6 +2,11 @@
 
 All notable changes to Bard Player. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.1.1 — 2026-10-31
+
+### Changed
+- **On startup** now defaults to playing the last track again from the beginning (it was off).
+
 ## 1.1.0 — 2026-10-31
 
 ### Added
