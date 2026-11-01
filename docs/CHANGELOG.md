@@ -2,6 +2,26 @@
 
 All notable changes to Bard Player. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.1.0 — 2026-10-31
+
+### Added
+- **Mini player ribbon button** (headphones) next to the player one; it can be hidden with the
+  **Ribbon button** setting (Mini player).
+- **Mini player background** settings: blurred artwork (with adjustable intensity), theme
+  background or black. The cover now lines up with the controls.
+- **On startup** setting (Playback): when Obsidian opens, play the last track, playlist or radio
+  again, either resuming where it stopped or from the beginning.
+
+### Changed
+- Removed YouTube Music branding from the plugin's UI and description: the view is now titled
+  "Bard Player" and the command is "Open player". The README keeps a single compatibility and
+  trademark note, plus a mini player GIF.
+
+### Fixed
+- Mini player showed the play icon instead of pause when opened while music was already playing.
+- Seeking on the mini player progress bar now jumps almost instantly instead of gliding slowly.
+- Volume is kept across player reloads.
+
 ## 1.0.0 — 2026-10-31
 
 First release.

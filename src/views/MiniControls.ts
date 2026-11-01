@@ -1,6 +1,12 @@
 import { setIcon } from "obsidian";
 import { PlayerService } from "../player/PlayerService";
-import { PlayerState, formatTime, livePosition } from "../player/protocol";
+import { EMPTY_STATE, PlayerState, formatTime, livePosition } from "../player/protocol";
+import { BardSettings, MINI_BACKDROPS } from "../settings";
+
+export interface MiniSettingsSource {
+	readonly settings: BardSettings;
+	onSettingsChange(listener: (s: BardSettings) => void): () => void;
+}
 
 /**
  * Compact remote-control UI for the player: artwork, title/artist, seekable progress,
@@ -22,20 +28,26 @@ export class MiniControls {
 	private readonly muteBtn: HTMLElement;
 	private readonly volume: HTMLInputElement;
 	private readonly unsubscribe: () => void;
+	private readonly unsubscribeSettings: () => void;
+	private readonly bodyObserver: ResizeObserver;
 	private readonly ticker: number;
 	private state: PlayerState;
 	private draggingVolume = false;
+	private lastPos = 0;
+	private jumpTimer = 0;
 
 	constructor(
 		parent: HTMLElement,
 		private readonly player: PlayerService,
+		settings: MiniSettingsSource,
 		onOpenPlayer: () => void,
 	) {
-		this.state = player.state;
+		// Start from the empty state so the first render diffs against what the DOM actually shows.
+		this.state = EMPTY_STATE;
 		this.root = parent.createDiv({ cls: "bard-mini" });
 		this.root.createDiv({ cls: "bard-mini-backdrop" });
 
-		const artWrap = this.root.createDiv({ cls: "bard-mini-art", attr: { "aria-label": "Open YouTube Music" } });
+		const artWrap = this.root.createDiv({ cls: "bard-mini-art", attr: { "aria-label": "Open player" } });
 		artWrap.addEventListener("click", onOpenPlayer);
 		this.art = artWrap.createEl("img", { attr: { alt: "", draggable: "false" } });
 		this.artFallback = artWrap.createDiv({ cls: "bard-mini-art-fallback" });
@@ -67,13 +79,22 @@ export class MiniControls {
 		this.volume.addEventListener("pointerup", () => (this.draggingVolume = false));
 		this.volume.addEventListener("input", () => player.send({ name: "volume", value: Number(this.volume.value) }));
 
+		// Size the cover to the text column so it lines up with the title and the controls.
+		this.bodyObserver = new ResizeObserver(() => this.root.setCssProps({ "--bard-body-h": `${body.offsetHeight}px` }));
+		this.bodyObserver.observe(body);
+
+		this.applySettings(settings.settings);
+		this.unsubscribeSettings = settings.onSettingsChange((s) => this.applySettings(s));
 		this.unsubscribe = player.subscribe((s) => this.render(s));
 		this.ticker = window.setInterval(() => this.renderProgress(), 500);
 	}
 
 	destroy(): void {
 		this.unsubscribe();
+		this.unsubscribeSettings();
+		this.bodyObserver.disconnect();
 		window.clearInterval(this.ticker);
+		window.clearTimeout(this.jumpTimer);
 		this.root.remove();
 	}
 
@@ -84,6 +105,11 @@ export class MiniControls {
 		return btn;
 	}
 
+	private applySettings(s: BardSettings): void {
+		for (const b of MINI_BACKDROPS) this.root.toggleClass(`bg-${b}`, b === s.miniBackdrop);
+		this.root.setCssProps({ "--bard-art-opacity": String(s.miniArtworkOpacity / 100) });
+	}
+
 	private render(s: PlayerState): void {
 		const prev = this.state;
 		this.state = s;
@@ -92,7 +118,7 @@ export class MiniControls {
 		this.root.toggleClass("is-ad", s.isAd);
 
 		this.title.setText(idle ? "Nothing playing" : s.title);
-		this.artist.setText(idle ? "Pick something in YouTube Music" : s.isAd ? "Ad" : [s.artist, s.album].filter(Boolean).join(" · "));
+		this.artist.setText(idle ? "Pick something in the player" : s.isAd ? "Ad" : [s.artist, s.album].filter(Boolean).join(" · "));
 		this.title.setAttr("title", s.title);
 
 		if (s.artworkUrl !== prev.artworkUrl || !this.art.getAttr("src")) {
@@ -126,6 +152,13 @@ export class MiniControls {
 		const s = this.state;
 		const pos = livePosition(s, Date.now());
 		const pct = s.duration > 0 ? (pos / s.duration) * 100 : 0;
+		// Ticks move ~0.5 s and glide; anything bigger (seek, track change) snaps with a short ease.
+		if (Math.abs(pos - this.lastPos) > 2) {
+			this.fill.addClass("is-jump");
+			window.clearTimeout(this.jumpTimer);
+			this.jumpTimer = window.setTimeout(() => this.fill.removeClass("is-jump"), 200);
+		}
+		this.lastPos = pos;
 		this.fill.setCssStyles({ width: `${pct}%` });
 		this.elapsed.setText(s.status === "idle" ? "" : formatTime(pos));
 		this.total.setText(s.status === "idle" || !s.duration ? "" : formatTime(s.duration));
@@ -136,6 +169,10 @@ export class MiniControls {
 		if (s.duration <= 0 || s.isAd) return;
 		const r = this.progress.getBoundingClientRect();
 		const frac = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-		this.player.send({ name: "seek", value: frac * s.duration });
+		const value = frac * s.duration;
+		this.player.send({ name: "seek", value });
+		// Show the new position right away instead of waiting for the guest to report it.
+		this.state = { ...s, position: value, ts: Date.now() };
+		this.renderProgress();
 	}
 }

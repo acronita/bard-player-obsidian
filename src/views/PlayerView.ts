@@ -24,7 +24,7 @@ export class PlayerView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return "YouTube Music";
+		return "Bard Player";
 	}
 
 	getIcon(): string {
@@ -37,25 +37,25 @@ export class PlayerView extends ItemView {
 		const player = this.plugin.getPlayer();
 
 		this.addAction("panel-right-open", "Open mini player", () => void this.plugin.activateMiniView());
-		this.addAction("home", "YouTube Music home", () => player.goHome());
+		this.addAction("home", "Home", () => player.goHome());
 		this.addAction("arrow-left", "Back", () => player.goBack());
 
 		if (this.contentEl.doc !== this.plugin.mainDocument()) {
 			this.contentEl.addClass("is-popout");
 			const box = this.contentEl.createDiv({ cls: "bard-popout-fallback" });
-			box.createEl("p", { text: "The YouTube Music page can only be shown in the main window." });
+			box.createEl("p", { text: "The player page can only be shown in the main window." });
 			box.createEl("button", { text: "Move to main window", cls: "mod-cta" }).addEventListener("click", () => {
 				this.leaf.detach();
 				void this.plugin.activatePlayerView();
 			});
-			this.fallback = new MiniControls(this.contentEl, player, () => {});
+			this.fallback = new MiniControls(this.contentEl, player, this.plugin, () => {});
 			return;
 		}
 
 		const surface = this.contentEl.createDiv({ cls: "bard-player-surface" });
 		const loading = surface.createDiv({ cls: "bard-player-loading" });
 		loading.createDiv({ cls: "bard-spinner" });
-		loading.createDiv({ text: "Loading YouTube Music…" });
+		loading.createDiv({ text: "Loading player…" });
 		player.whenLoaded(() => surface.addClass("is-loaded"));
 		this.surface = surface;
 		player.attach(surface);
