@@ -2,6 +2,8 @@
 
 Music streaming player for [Obsidian](https://obsidian.md): a full player view, a mini player (dock, popout or floating always-on-top window), Windows taskbar buttons and media-key integration.
 
+![Bard Player mini player](docs/images/mini-player.gif)
+
 > **Desktop only.** Bard Player relies on Electron's `<webview>` and is not available on mobile.
 >
 > **Compatibility and trademarks.** Bard Player embeds the official YouTube Music web app; it does not block ads or download content. It is not affiliated with, endorsed by or sponsored by YouTube or Google. "YouTube" and "YouTube Music" are trademarks of Google LLC.
