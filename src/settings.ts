@@ -19,7 +19,7 @@ export interface BardSettings {
 export const DEFAULT_SETTINGS: BardSettings = {
 	miniBackdrop: "artwork",
 	miniArtworkOpacity: 60,
-	startupPlayback: "off",
+	startupPlayback: "restart",
 	miniRibbonIcon: true,
 };
 
