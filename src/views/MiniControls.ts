@@ -47,7 +47,7 @@ export class MiniControls {
 		this.root = parent.createDiv({ cls: "bard-mini" });
 		this.root.createDiv({ cls: "bard-mini-backdrop" });
 
-		const artWrap = this.root.createDiv({ cls: "bard-mini-art", attr: { "aria-label": "Open YouTube Music" } });
+		const artWrap = this.root.createDiv({ cls: "bard-mini-art", attr: { "aria-label": "Open player" } });
 		artWrap.addEventListener("click", onOpenPlayer);
 		this.art = artWrap.createEl("img", { attr: { alt: "", draggable: "false" } });
 		this.artFallback = artWrap.createDiv({ cls: "bard-mini-art-fallback" });
@@ -118,7 +118,7 @@ export class MiniControls {
 		this.root.toggleClass("is-ad", s.isAd);
 
 		this.title.setText(idle ? "Nothing playing" : s.title);
-		this.artist.setText(idle ? "Pick something in YouTube Music" : s.isAd ? "Ad" : [s.artist, s.album].filter(Boolean).join(" · "));
+		this.artist.setText(idle ? "Pick something in the player" : s.isAd ? "Ad" : [s.artist, s.album].filter(Boolean).join(" · "));
 		this.title.setAttr("title", s.title);
 
 		if (s.artworkUrl !== prev.artworkUrl || !this.art.getAttr("src")) {

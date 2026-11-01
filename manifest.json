@@ -3,7 +3,7 @@
   "name": "Bard Player",
   "version": "1.0.0",
   "minAppVersion": "1.6.6",
-  "description": "YouTube Music player inside Obsidian, with a mini player and Windows taskbar controls.",
+  "description": "Music streaming player inside Obsidian, with a mini player and Windows taskbar controls.",
   "author": "is-cout",
   "isDesktopOnly": true
 }
