@@ -13,7 +13,7 @@ Music streaming player for [Obsidian](https://obsidian.md): a full player view, 
 Version 1.0.0. See [docs/PLAN.md](docs/PLAN.md) for the roadmap.
 
 - **Player view** (ribbon icon or the "Open player" command): the full web player in a tab.
-- **Mini player** ("Open mini player"): compact controls to dock in a sidebar, a split or a popout.
+- **Mini player** (headphones ribbon icon, which can be hidden in settings, or "Open mini player"): compact controls to dock in a sidebar, a split or a popout.
 - **Windows taskbar buttons** (previous / play-pause / next) and media keys.
 
 ### Where is my login stored?

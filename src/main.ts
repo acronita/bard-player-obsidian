@@ -29,6 +29,9 @@ export default class BardPlayerPlugin extends Plugin {
 		this.registerView(VIEW_TYPE_MINI, (leaf) => new MiniPlayerView(leaf, this));
 
 		this.addRibbonIcon("music", "Open Bard Player", () => void this.activatePlayerView());
+		const miniRibbon = this.addRibbonIcon("headphones", "Open mini player", () => void this.activateMiniView());
+		miniRibbon.toggle(this.settings.miniRibbonIcon);
+		this.register(this.onSettingsChange((s) => miniRibbon.toggle(s.miniRibbonIcon)));
 
 		this.addCommand({ id: "open-player", name: "Open player", callback: () => void this.activatePlayerView() });
 		this.addCommand({ id: "open-mini-player", name: "Open mini player", callback: () => void this.activateMiniView() });
