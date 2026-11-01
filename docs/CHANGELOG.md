@@ -8,6 +8,11 @@ All notable changes to Bard Player. Versions follow [Semantic Versioning](https:
 - **On startup** setting (Playback): when Obsidian opens, play the last track, playlist or radio
   again, either resuming where it stopped or from the beginning.
 
+### Changed
+- Removed YouTube Music branding from the plugin's UI and description: the view is now titled
+  "Bard Player" and the command is "Open player". The README keeps a single compatibility and
+  trademark note, plus a mini player GIF.
+
 ### Fixed
 - Mini player showed the play icon instead of pause when opened while music was already playing.
 - Seeking on the mini player progress bar now jumps almost instantly instead of gliding slowly.
