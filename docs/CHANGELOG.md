@@ -2,6 +2,11 @@
 
 All notable changes to Bard Player. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.1.2 — 2026-11-01
+
+### Fixed
+- Plugin description no longer mentions Obsidian, as required by the community plugin directory.
+
 ## 1.1.1 — 2026-10-31
 
 ### Changed
