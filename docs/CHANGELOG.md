@@ -2,6 +2,16 @@
 
 All notable changes to Bard Player. Versions follow [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Added
+- **On startup** setting (Playback): when Obsidian opens, play the last track, playlist or radio
+  again, either resuming where it stopped or from the beginning.
+
+### Fixed
+- Mini player showed the play icon instead of pause when opened while music was already playing.
+- Seeking on the mini player progress bar now jumps almost instantly instead of gliding slowly.
+
 ## 1.0.0 — 2026-10-31
 
 First release.

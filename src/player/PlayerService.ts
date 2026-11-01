@@ -2,7 +2,7 @@ import { Platform } from "obsidian";
 import { PARTITION, YTM_URL } from "../constants";
 import { clearUserAgentOverride, overrideUserAgent, routePopupsToBrowser, setPartitionUserAgent } from "../electron/remote";
 import { INJECT_SRC } from "./inject";
-import { Command, EMPTY_STATE, PlayerState, parseMessage } from "./protocol";
+import { Command, EMPTY_STATE, PlayerState, parseMessage, watchUrl } from "./protocol";
 import { OsKind, UaMode, UaProfile, buildProfile, isSignInRejected } from "./userAgent";
 
 interface WebviewTag extends HTMLElement {
@@ -19,6 +19,14 @@ type StateListener = (state: PlayerState) => void;
 export interface VolumeStore {
 	load(): number | null;
 	save(volume: number): void;
+}
+
+/** Where playback stopped last session; applied once when the page reports media. */
+export interface ResumeTarget {
+	videoId: string;
+	playlistId: string | null;
+	/** Seconds. */
+	position: number;
 }
 
 const OFFSCREEN_LEFT = "-10000px";
@@ -59,17 +67,24 @@ export class PlayerService {
 	private readonly loadListeners: Array<() => void> = [];
 	/** Whether the stored volume was applied to the current page; YTM resets it on each full load. */
 	private volumeRestored = false;
+	private resume: ResumeTarget | null;
+	private resumeUntil = 0;
+	private resumeSeeked = false;
+	private lastResumePlay = 0;
 
 	/**
 	 * @param mainDoc the main window's document: the webview must never change window.
 	 * @param onSignInRejected called when Google shows its "browser may not be secure" page.
+	 * @param resume when given, opens that item instead of the home page and starts playing it.
 	 */
 	constructor(
 		mainDoc: Document,
 		uaMode: UaMode,
 		private readonly onSignInRejected: () => void,
 		private readonly volumeStore: VolumeStore,
+		resume: ResumeTarget | null = null,
 	) {
+		this.resume = resume;
 		this.profile = profileFor(uaMode);
 		const ua = this.profile.userAgent;
 		setPartitionUserAgent(PARTITION, ua);
@@ -83,7 +98,7 @@ export class PlayerService {
 				useragent: ua,
 				webpreferences: "backgroundThrottling=no, autoplayPolicy=no-user-gesture-required",
 				allowpopups: "",
-				src: YTM_URL,
+				src: resume ? watchUrl(YTM_URL, resume.videoId, resume.playlistId) : YTM_URL,
 			},
 		}) as unknown as WebviewTag;
 		this.webview = wv;
@@ -251,7 +266,36 @@ export class PlayerService {
 		const prev = this.state;
 		this.state = next;
 		this.syncVolume(prev, next);
+		this.applyResume(next);
 		for (const l of this.listeners) l(next);
+	}
+
+	/**
+	 * Seek to where the last session stopped and keep asking to play until it does: YTM may load
+	 * the item paused, or swallow a play sent while the media is still loading. Gives up after 15 s.
+	 */
+	private applyResume(next: PlayerState): void {
+		const r = this.resume;
+		if (!r || next.status === "idle" || next.isAd) return;
+		const now = Date.now();
+		if (!this.resumeUntil) this.resumeUntil = now + 15000;
+		if (now > this.resumeUntil) {
+			this.resume = null;
+			return;
+		}
+		if (!this.resumeSeeked && next.duration > 0) {
+			this.resumeSeeked = true;
+			const sameItem = !next.videoId || next.videoId === r.videoId;
+			if (sameItem && r.position > 5 && r.position < next.duration - 5) this.send({ name: "seek", value: r.position });
+		}
+		if (next.status === "playing") {
+			if (this.resumeSeeked) this.resume = null;
+			return;
+		}
+		if (now - this.lastResumePlay > 1000) {
+			this.lastResumePlay = now;
+			this.send({ name: "play" });
+		}
 	}
 
 	/**

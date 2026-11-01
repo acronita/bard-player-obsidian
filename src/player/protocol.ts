@@ -24,6 +24,10 @@ export interface PlayerState {
 	liked: LikeStatus | null;
 	/** An ad is playing (metadata then describes the ad, not a track). */
 	isAd: boolean;
+	/** YouTube video id of the current item, when known. */
+	videoId: string | null;
+	/** Playlist / album / radio the item plays from, when known. */
+	playlistId: string | null;
 	/** Guest clock (ms) when the snapshot was taken. */
 	ts: number;
 }
@@ -45,6 +49,8 @@ export const EMPTY_STATE: PlayerState = {
 	muted: false,
 	liked: null,
 	isAd: false,
+	videoId: null,
+	playlistId: null,
 	ts: 0,
 };
 
@@ -82,6 +88,8 @@ export function normalize(raw: Record<string, unknown>): PlayerState {
 		muted: raw.muted === true,
 		liked,
 		isAd: raw.isAd === true,
+		videoId: str(raw.videoId) || null,
+		playlistId: str(raw.playlistId) || null,
 		ts: num(raw.ts),
 	};
 }
@@ -91,6 +99,13 @@ export function livePosition(s: PlayerState, now: number): number {
 	if (s.status !== "playing" || s.ts === 0) return s.position;
 	const pos = s.position + (now - s.ts) / 1000;
 	return s.duration > 0 ? Math.min(pos, s.duration) : pos;
+}
+
+/** YouTube Music page that plays `videoId`, continuing in `playlistId` when given. */
+export function watchUrl(base: string, videoId: string, playlistId: string | null): string {
+	const params = new URLSearchParams({ v: videoId });
+	if (playlistId) params.set("list", playlistId);
+	return `${base}/watch?${params.toString()}`;
 }
 
 export function formatTime(seconds: number): string {
