@@ -222,6 +222,10 @@
 	transition: width 0.5s linear;
 }
 
+.bard-mini-progress-fill.is-jump {
+	transition: width 0.12s ease-out;
+}
+
 .bard-mini.is-idle .bard-mini-time,
 .bard-mini.is-ad .bard-mini-progress {
 	pointer-events: none;

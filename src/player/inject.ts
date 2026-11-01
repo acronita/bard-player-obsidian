@@ -24,6 +24,7 @@ export const INJECT_SRC = `(() => {
 		if (b) { b.click(); return true; }
 		return false;
 	};
+	const watchParam = (k) => (location.pathname === "/watch" ? new URLSearchParams(location.search).get(k) : null);
 	const snap = () => {
 		const v = video(), p = player();
 		const md = navigator.mediaSession ? navigator.mediaSession.metadata : null;
@@ -43,6 +44,8 @@ export const INJECT_SRC = `(() => {
 			muted: call(p, "isMuted") === true || (v ? v.muted : false),
 			liked: likeEl ? likeEl.getAttribute("like-status") : null,
 			isAd: !!(p && p.classList && p.classList.contains("ad-showing")),
+			videoId: data.video_id || watchParam("v") || null,
+			playlistId: call(p, "getPlaylistId") || data.list || watchParam("list") || null,
 			ts: Date.now()
 		};
 	};

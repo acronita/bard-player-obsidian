@@ -1,6 +1,6 @@
 import { setIcon } from "obsidian";
 import { PlayerService } from "../player/PlayerService";
-import { PlayerState, formatTime, livePosition } from "../player/protocol";
+import { EMPTY_STATE, PlayerState, formatTime, livePosition } from "../player/protocol";
 import { BardSettings, MINI_BACKDROPS } from "../settings";
 
 export interface MiniSettingsSource {
@@ -33,6 +33,8 @@ export class MiniControls {
 	private readonly ticker: number;
 	private state: PlayerState;
 	private draggingVolume = false;
+	private lastPos = 0;
+	private jumpTimer = 0;
 
 	constructor(
 		parent: HTMLElement,
@@ -40,7 +42,8 @@ export class MiniControls {
 		settings: MiniSettingsSource,
 		onOpenPlayer: () => void,
 	) {
-		this.state = player.state;
+		// Start from the empty state so the first render diffs against what the DOM actually shows.
+		this.state = EMPTY_STATE;
 		this.root = parent.createDiv({ cls: "bard-mini" });
 		this.root.createDiv({ cls: "bard-mini-backdrop" });
 
@@ -91,6 +94,7 @@ export class MiniControls {
 		this.unsubscribeSettings();
 		this.bodyObserver.disconnect();
 		window.clearInterval(this.ticker);
+		window.clearTimeout(this.jumpTimer);
 		this.root.remove();
 	}
 
@@ -148,6 +152,13 @@ export class MiniControls {
 		const s = this.state;
 		const pos = livePosition(s, Date.now());
 		const pct = s.duration > 0 ? (pos / s.duration) * 100 : 0;
+		// Ticks move ~0.5 s and glide; anything bigger (seek, track change) snaps with a short ease.
+		if (Math.abs(pos - this.lastPos) > 2) {
+			this.fill.addClass("is-jump");
+			window.clearTimeout(this.jumpTimer);
+			this.jumpTimer = window.setTimeout(() => this.fill.removeClass("is-jump"), 200);
+		}
+		this.lastPos = pos;
 		this.fill.setCssStyles({ width: `${pct}%` });
 		this.elapsed.setText(s.status === "idle" ? "" : formatTime(pos));
 		this.total.setText(s.status === "idle" || !s.duration ? "" : formatTime(s.duration));
@@ -158,6 +169,10 @@ export class MiniControls {
 		if (s.duration <= 0 || s.isAd) return;
 		const r = this.progress.getBoundingClientRect();
 		const frac = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-		this.player.send({ name: "seek", value: frac * s.duration });
+		const value = frac * s.duration;
+		this.player.send({ name: "seek", value });
+		// Show the new position right away instead of waiting for the guest to report it.
+		this.state = { ...s, position: value, ts: Date.now() };
+		this.renderProgress();
 	}
 }

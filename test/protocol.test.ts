@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MSG_PREFIX, formatTime, livePosition, parseMessage } from "../src/player/protocol.ts";
+import { MSG_PREFIX, formatTime, livePosition, parseMessage, watchUrl } from "../src/player/protocol.ts";
 
 const msg = (o: unknown) => MSG_PREFIX + JSON.stringify(o);
 
@@ -14,7 +14,7 @@ test("ignores non-Bard and malformed messages", () => {
 
 test("normalizes a playing snapshot", () => {
 	const s = parseMessage(
-		msg({ title: "Song", artist: "Band", album: "LP", artwork: "https://x/a.jpg", paused: false, position: 12.5, duration: 200, volume: 73.6, muted: false, liked: "LIKE", isAd: false, ts: 1000 }),
+		msg({ title: "Song", artist: "Band", album: "LP", artwork: "https://x/a.jpg", paused: false, position: 12.5, duration: 200, volume: 73.6, muted: false, liked: "LIKE", isAd: false, videoId: "abc", playlistId: "RDAMVMabc", ts: 1000 }),
 	);
 	assert.deepEqual(s, {
 		status: "playing",
@@ -28,6 +28,8 @@ test("normalizes a playing snapshot", () => {
 		muted: false,
 		liked: "like",
 		isAd: false,
+		videoId: "abc",
+		playlistId: "RDAMVMabc",
 		ts: 1000,
 	});
 });
@@ -49,6 +51,11 @@ test("livePosition extrapolates only while playing and caps at duration", () => 
 	assert.equal(livePosition(base, 2000), 11);
 	assert.equal(livePosition(base, 9000), 12);
 	assert.equal(livePosition({ ...base, status: "paused" }, 9000), 10);
+});
+
+test("watchUrl builds a watch page, with the list only when known", () => {
+	assert.equal(watchUrl("https://m", "abc", null), "https://m/watch?v=abc");
+	assert.equal(watchUrl("https://m", "abc", "PL1"), "https://m/watch?v=abc&list=PL1");
 });
 
 test("formatTime", () => {

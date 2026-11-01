@@ -1,6 +1,12 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type BardPlayerPlugin from "./main";
-import { MiniBackdrop } from "./settings";
+import { MiniBackdrop, StartupPlayback } from "./settings";
+
+const STARTUP_LABELS: Record<StartupPlayback, string> = {
+	off: "Do nothing",
+	resume: "Resume where it stopped",
+	restart: "Play from the beginning",
+};
 
 const BACKDROP_LABELS: Record<MiniBackdrop, string> = {
 	artwork: "Blurred artwork",
@@ -20,6 +26,18 @@ export class BardSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		const settings = this.plugin.settings;
 		containerEl.empty();
+
+		new Setting(containerEl).setName("Playback").setHeading();
+
+		new Setting(containerEl)
+			.setName("On startup")
+			.setDesc("When Obsidian opens, play the last track, playlist or radio again.")
+			.addDropdown((d) =>
+				d
+					.addOptions(STARTUP_LABELS)
+					.setValue(settings.startupPlayback)
+					.onChange((value) => void this.plugin.updateSettings({ startupPlayback: value as StartupPlayback })),
+			);
 
 		new Setting(containerEl).setName("Mini player").setHeading();
 
