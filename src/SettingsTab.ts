@@ -75,5 +75,16 @@ export class BardSettingTab extends PluginSettingTab {
 						.onChange((value) => void this.plugin.updateSettings({ miniArtworkOpacity: value })),
 				);
 		}
+
+		new Setting(containerEl).setName("Troubleshooting").setHeading();
+
+		new Setting(containerEl)
+			.setName("Debug logging")
+			.setDesc("Write sign-in diagnostics to the developer console (Ctrl+Shift+I, Console tab). Turn it on, reproduce the problem, then copy the lines starting with [bard-player].")
+			.addToggle((t) =>
+				t
+					.setValue(settings.debugLogging)
+					.onChange((value) => void this.plugin.updateSettings({ debugLogging: value })),
+			);
 	}
 }
