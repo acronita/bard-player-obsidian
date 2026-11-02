@@ -1,14 +1,16 @@
 /*
- * Browser identity presented to Google. Obsidian ships an old Chromium whose client hints only say
- * "Chromium", which Google sign-in rejects as an embedded/unsafe browser. We present a current
- * browser consistently in the User-Agent header, the Sec-CH-UA headers and navigator.userAgentData.
- * Pure functions, unit-tested.
+ * Browser identity presented to Google. Obsidian's Chromium client hints only say "Chromium", which
+ * Google sign-in rejects as an embedded/unsafe browser. We present another browser consistently in
+ * the User-Agent header, the Sec-CH-UA headers and navigator.userAgentData. Pure functions, unit-tested.
  */
 
 export type UaMode = "chrome" | "firefox" | "electron";
 
-/** Order in which identities are tried when Google rejects the sign-in. */
-export const UA_MODES: readonly UaMode[] = ["chrome", "firefox", "electron"];
+/**
+ * Order in which identities are tried when Google rejects the sign-in. Firefox goes first: it is the
+ * identity sign-in has been seen to accept on the first try.
+ */
+export const UA_MODES: readonly UaMode[] = ["firefox", "chrome", "electron"];
 
 export function nextUaMode(mode: UaMode): UaMode | null {
 	return UA_MODES[UA_MODES.indexOf(mode) + 1] ?? null;
@@ -46,8 +48,7 @@ export interface EngineVersions {
 
 const DAY = 86_400_000;
 const RELEASE_INTERVAL = 28 * DAY;
-// Anchors: Chrome 120 and Firefox 121 both shipped in early December 2023; both release every ~4 weeks.
-const CHROME_ANCHOR = { version: 120, at: Date.UTC(2023, 11, 5) };
+// Anchor: Firefox 121 shipped in December 2023; it releases every ~4 weeks.
 const FIREFOX_ANCHOR = { version: 121, at: Date.UTC(2023, 11, 19) };
 /** Stay a couple of releases behind "today" so we never claim a version that does not exist yet. */
 const SAFETY_LAG = 2;
@@ -57,8 +58,22 @@ function versionAt(anchor: { version: number; at: number }, now: number): number
 	return anchor.version + Math.max(0, steps);
 }
 
-export const chromeVersionAt = (now: number, actual = 0): number => Math.max(actual, versionAt(CHROME_ANCHOR, now));
 export const firefoxVersionAt = (now: number): number => versionAt(FIREFOX_ANCHOR, now);
+
+// Anchor: Chrome 120 shipped in December 2023, on the same ~4-week cadence.
+const CHROME_ANCHOR = { version: 120, at: Date.UTC(2023, 11, 5) };
+/** About a year of Chrome releases. */
+const OUTDATED_RELEASES = 13;
+
+/**
+ * Whether the embedded engine is more than about a year behind current Chrome. Google refuses
+ * sign-in on old engines whatever identity is presented (seen: Chrome 120 refused in late 2026,
+ * Chrome 150 accepted). Only a new Obsidian installer updates the engine.
+ */
+export function isEngineOutdated(chrome: string, now: number): boolean {
+	const major = parseInt(chrome, 10);
+	return Number.isFinite(major) && versionAt(CHROME_ANCHOR, now) - major > OUTDATED_RELEASES;
+}
 
 const CHROME_OS: Record<OsKind, string> = {
 	windows: "Windows NT 10.0; Win64; x64",
@@ -79,8 +94,8 @@ const HINT_PLATFORM: Record<OsKind, { platform: string; platformVersion: string 
 };
 
 /**
- * @param engine versions of the embedded Chromium/Electron. We never claim to be older than it, and
- *   "electron" mode reports it as is (Pear Desktop's retry fallback).
+ * @param engine versions of the embedded Chromium/Electron. "chrome" mode claims exactly this version:
+ *   a newer claim is contradicted by the page's JS features, which Google sign-in checks. "electron" mode reports it as is (Pear Desktop's retry fallback).
  */
 export function buildProfile(mode: UaMode, os: OsKind, now: number, engine: EngineVersions): UaProfile {
 	if (mode === "electron") {
@@ -94,15 +109,15 @@ export function buildProfile(mode: UaMode, os: OsKind, now: number, engine: Engi
 		const v = firefoxVersionAt(now);
 		return { userAgent: `Mozilla/5.0 (${FIREFOX_OS[os]}; rv:${v}.0) Gecko/20100101 Firefox/${v}.0`, metadata: null, emulate: true };
 	}
-	const v = chromeVersionAt(now, parseInt(engine.chrome, 10) || 0);
-	const full = `${v}.0.0.0`;
+	const v = parseInt(engine.chrome, 10) || 120;
+	const full = /^\d+\.\d+\.\d+\.\d+$/.test(engine.chrome) ? engine.chrome : `${v}.0.0.0`;
 	const brands = [
 		{ brand: "Google Chrome", version: String(v) },
 		{ brand: "Chromium", version: String(v) },
 		{ brand: "Not_A Brand", version: "24" },
 	];
 	return {
-		userAgent: `Mozilla/5.0 (${CHROME_OS[os]}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${full} Safari/537.36`,
+		userAgent: `Mozilla/5.0 (${CHROME_OS[os]}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v}.0.0.0 Safari/537.36`,
 		metadata: {
 			brands,
 			fullVersionList: brands.map((b) => ({ brand: b.brand, version: b.brand === "Not_A Brand" ? "24.0.0.0" : full })),

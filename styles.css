@@ -19,6 +19,12 @@
 	border: 0;
 }
 
+/* ---------- Ribbon ---------- */
+
+.side-dock-ribbon-action.bard-mini-ribbon.is-hidden-by-setting {
+	display: none;
+}
+
 /* ---------- Full view ---------- */
 
 .workspace-leaf-content[data-type="bard-player-view"] .view-content.bard-player-view {

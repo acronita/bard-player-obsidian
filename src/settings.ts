@@ -14,6 +14,8 @@ export interface BardSettings {
 	startupPlayback: StartupPlayback;
 	/** Show the mini player button in the left ribbon. */
 	miniRibbonIcon: boolean;
+	/** Write sign-in diagnostics to the developer console. */
+	debugLogging: boolean;
 }
 
 export const DEFAULT_SETTINGS: BardSettings = {
@@ -21,6 +23,7 @@ export const DEFAULT_SETTINGS: BardSettings = {
 	miniArtworkOpacity: 60,
 	startupPlayback: "restart",
 	miniRibbonIcon: true,
+	debugLogging: false,
 };
 
 /** Merges stored data over the defaults, dropping anything malformed. */
@@ -32,5 +35,6 @@ export function normalizeSettings(raw: unknown): BardSettings {
 		: DEFAULT_SETTINGS.miniArtworkOpacity;
 	const startup = STARTUP_PLAYBACKS.find((p) => p === data.startupPlayback) ?? DEFAULT_SETTINGS.startupPlayback;
 	const ribbon = typeof data.miniRibbonIcon === "boolean" ? data.miniRibbonIcon : DEFAULT_SETTINGS.miniRibbonIcon;
-	return { miniBackdrop: backdrop, miniArtworkOpacity: opacity, startupPlayback: startup, miniRibbonIcon: ribbon };
+	const debug = typeof data.debugLogging === "boolean" ? data.debugLogging : DEFAULT_SETTINGS.debugLogging;
+	return { miniBackdrop: backdrop, miniArtworkOpacity: opacity, startupPlayback: startup, miniRibbonIcon: ribbon, debugLogging: debug };
 }
