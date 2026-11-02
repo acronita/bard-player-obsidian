@@ -2,7 +2,7 @@
 
 All notable changes to Bard Player. Versions follow [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## 1.2.0 — 2026-11-02
 
 ### Added
 - When Google refuses the sign-in and Obsidian's built-in browser engine is about a year or more
