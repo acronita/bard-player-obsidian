@@ -19,9 +19,11 @@ const env = Object.fromEntries(
     })
 );
 
-const dest = env.OBSIDIAN_PLUGIN_DIR;
+// `node copy-to-vault.mjs OBSIDIAN_TEST_PLUGIN_DIR` targets the test vault instead.
+const key = process.argv[2] ?? "OBSIDIAN_PLUGIN_DIR";
+const dest = env[key];
 if (!dest) {
-  console.log("copy-to-vault: OBSIDIAN_PLUGIN_DIR not set, skip");
+  console.log(`copy-to-vault: ${key} not set, skip`);
   process.exit(0);
 }
 
