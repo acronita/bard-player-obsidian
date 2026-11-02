@@ -2,6 +2,22 @@
 
 All notable changes to Bard Player. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.2.0 — 2026-11-02
+
+### Added
+- When Google refuses the sign-in and Obsidian's built-in browser engine is about a year or more
+  behind, a notice explains that a new Obsidian installer is needed.
+- **Debug logging** setting (Troubleshooting): writes sign-in diagnostics to the developer console.
+- README: step-by-step help when sign-in fails, starting with updating the Obsidian installer
+  (Google refuses sign-in on old built-in browser engines, e.g. Chrome 120).
+
+### Fixed
+- The mini player ribbon button no longer comes back after a restart when **Ribbon button** is off.
+- Google sign-in works on the first try more often: Bard Player now starts with the Firefox
+  identity, applies it before the first request, presents Chrome with the engine's real version,
+  and clears the rejected attempt's cookies before retrying. Retries start over after the last
+  identity instead of stopping.
+
 ## 1.1.2 — 2026-11-01
 
 ### Fixed

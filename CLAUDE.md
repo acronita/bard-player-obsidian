@@ -8,6 +8,9 @@ Obsidian plugin that embeds YouTube Music (reference: Pear Desktop). See `docs/P
   `APPDATA`, `--remote-debugging-port`, CDP harnesses). Verify with `npm run build`, `npm run lint`
   and `npm test`, then give Lucas a short manual checklist; he tests in his own Obsidian
   (`npm run build` copies to the vault set in `.env.local` → `OBSIDIAN_PLUGIN_DIR`).
+- Lucas keeps one test vault of his own for sign-in testing (`npm run build:test` →
+  `OBSIDIAN_TEST_PLUGIN_DIR`; it signs in through the `persist:bard-player-test` partition). He opens
+  it himself; never launch it.
 
 ## Git
 

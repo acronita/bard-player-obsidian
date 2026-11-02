@@ -37,7 +37,7 @@ interface WebContentsLike {
 export interface RemoteLike {
 	getCurrentWindow(): BrowserWindowLike;
 	nativeImage: { createFromDataURL(url: string): NativeImageLike };
-	session: { fromPartition(partition: string): { setUserAgent(ua: string): void } };
+	session: { fromPartition(partition: string): { setUserAgent(ua: string): void; clearStorageData(): Promise<void> } };
 	webContents: { fromId(id: number): WebContentsLike | undefined };
 }
 
@@ -70,6 +70,15 @@ export function setPartitionUserAgent(partition: string, ua: string): void {
 		getRemote()?.session.fromPartition(partition).setUserAgent(ua);
 	} catch (err) {
 		console.warn("[bard-player] setUserAgent failed", err);
+	}
+}
+
+/** Wipe cookies and site storage of a partition (signs out of everything in it). */
+export async function clearPartitionData(partition: string): Promise<void> {
+	try {
+		await getRemote()?.session.fromPartition(partition).clearStorageData();
+	} catch (err) {
+		console.warn("[bard-player] clearStorageData failed", err);
 	}
 }
 

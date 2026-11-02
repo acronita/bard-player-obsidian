@@ -1,6 +1,7 @@
 import { Platform } from "obsidian";
 import { PARTITION, YTM_URL } from "../constants";
-import { clearUserAgentOverride, overrideUserAgent, routePopupsToBrowser, setPartitionUserAgent } from "../electron/remote";
+import { clearPartitionData, clearUserAgentOverride, overrideUserAgent, routePopupsToBrowser, setPartitionUserAgent } from "../electron/remote";
+import { debugLog, redactUrl } from "../log";
 import { INJECT_SRC } from "./inject";
 import { Command, EMPTY_STATE, PlayerState, parseMessage, watchUrl } from "./protocol";
 import { OsKind, UaMode, UaProfile, buildProfile, isSignInRejected } from "./userAgent";
@@ -11,6 +12,7 @@ interface WebviewTag extends HTMLElement {
 	canGoBack(): boolean;
 	goBack(): void;
 	loadURL(url: string): Promise<void>;
+	getURL(): string;
 }
 
 type StateListener = (state: PlayerState) => void;
@@ -30,6 +32,8 @@ export interface ResumeTarget {
 }
 
 const OFFSCREEN_LEFT = "-10000px";
+/** The guest boots here so the identity is in place before the first request reaches Google. */
+const BOOT_URL = "about:blank";
 
 function osKind(): OsKind {
 	return Platform.isWin ? "windows" : Platform.isMacOS ? "mac" : "linux";
@@ -60,7 +64,10 @@ export class PlayerService {
 	private readonly onWindowResize = () => this.reposition();
 	state: PlayerState = EMPTY_STATE;
 
+	private mode: UaMode;
 	private profile: UaProfile;
+	/** Whether the last main-frame navigation was on Google's sign-in pages. */
+	private inSignIn = false;
 	private webContentsId: number | null = null;
 	private lastRejectedUrl = "";
 	private loaded = false;
@@ -85,12 +92,14 @@ export class PlayerService {
 		resume: ResumeTarget | null = null,
 	) {
 		this.resume = resume;
+		this.mode = uaMode;
 		this.profile = profileFor(uaMode);
 		const ua = this.profile.userAgent;
 		setPartitionUserAgent(PARTITION, ua);
 
 		this.host = mainDoc.body.createDiv({ cls: "bard-host" });
 		// Attributes are applied before the element is attached, so the partition is set before the first navigation.
+		const startUrl = resume ? watchUrl(YTM_URL, resume.videoId, resume.playlistId) : YTM_URL;
 		const wv = this.host.createEl("webview" as "div", {
 			cls: "bard-webview",
 			attr: {
@@ -98,22 +107,25 @@ export class PlayerService {
 				useragent: ua,
 				webpreferences: "backgroundThrottling=no, autoplayPolicy=no-user-gesture-required",
 				allowpopups: "",
-				src: resume ? watchUrl(YTM_URL, resume.videoId, resume.playlistId) : YTM_URL,
+				src: BOOT_URL,
 			},
 		}) as unknown as WebviewTag;
 		this.webview = wv;
 
 		wv.addEventListener("dom-ready", () => {
 			if (this.webContentsId === null) {
+				// Client hints can only be overridden once the guest exists: do it on the blank boot
+				// page, then load the real one, so Google never sees the engine's own identity.
 				this.webContentsId = wv.getWebContentsId();
 				routePopupsToBrowser(this.webContentsId);
-				void this.applyProfile();
+				void this.applyProfile().then(() => wv.loadURL(startUrl).catch(() => {}));
+				return;
 			}
-			void this.inject();
+			if (!this.booting()) void this.inject();
 		});
 		wv.addEventListener("did-navigate", (e) => {
 			this.checkSignIn((e as Event & { url?: string }).url);
-			void this.inject();
+			if (!this.booting()) void this.inject();
 		});
 		// Google's sign-in flow is itself a SPA: the rejection page can arrive as an in-page navigation.
 		wv.addEventListener("did-navigate-in-page", (e) => {
@@ -136,11 +148,19 @@ export class PlayerService {
 			for (const l of this.loadListeners.splice(0)) l();
 		};
 		// did-stop-loading means resources are in; give YTM's app shell a beat to paint.
-		wv.addEventListener("did-stop-loading", () => window.setTimeout(markLoaded, 300));
+		wv.addEventListener("did-stop-loading", () => {
+			if (!this.booting()) window.setTimeout(markLoaded, 300);
+		});
 		const loadTimeout = window.setTimeout(markLoaded, 20000);
 		wv.addEventListener("console-message", (e) => {
 			const next = parseMessage((e as Event & { message?: unknown }).message);
 			if (next) this.setState(next);
+		});
+
+		wv.addEventListener("did-fail-load", (e) => {
+			const fail = e as Event & { errorCode?: number; errorDescription?: string; validatedURL?: string; isMainFrame?: boolean };
+			// -3 is ERR_ABORTED: a navigation replaced by another one, which is routine.
+			if (fail.isMainFrame && fail.errorCode !== -3) debugLog("page failed to load:", fail.errorCode, fail.errorDescription, redactUrl(fail.validatedURL ?? ""));
 		});
 
 		window.addEventListener("resize", this.onWindowResize);
@@ -170,9 +190,24 @@ export class PlayerService {
 
 	/** Switch the browser identity presented to Google (applies to the next requests). */
 	setUaMode(mode: UaMode): void {
+		this.mode = mode;
 		this.profile = profileFor(mode);
 		setPartitionUserAgent(PARTITION, this.profile.userAgent);
 		void this.applyProfile();
+	}
+
+	/**
+	 * After a rejected sign-in: switch identity, drop the cookies the rejected attempt left (Google
+	 * would tie the next attempt to them) and go back home. Nobody is signed in at that point.
+	 */
+	async retrySignIn(mode: UaMode): Promise<void> {
+		this.mode = mode;
+		this.profile = profileFor(mode);
+		setPartitionUserAgent(PARTITION, this.profile.userAgent);
+		await this.applyProfile();
+		await clearPartitionData(PARTITION);
+		debugLog("cleared the rejected attempt's cookies; reloading home");
+		this.goHome();
 	}
 
 	goBack(): void {
@@ -231,21 +266,33 @@ export class PlayerService {
 		this.host.remove();
 	}
 
+	private booting(): boolean {
+		try {
+			return this.webview.getURL() === BOOT_URL;
+		} catch {
+			return true; // getURL throws until the guest's first dom-ready
+		}
+	}
+
 	private async applyProfile(): Promise<void> {
 		if (this.webContentsId === null) return;
 		if (!this.profile.emulate) {
 			clearUserAgentOverride(this.webContentsId);
-			console.debug("[bard-player] identity: embedded browser", this.profile.userAgent);
+			debugLog(`identity "${this.mode}": embedded browser, no override`, this.profile.userAgent);
 			return;
 		}
 		const ok = await overrideUserAgent(this.webContentsId, this.profile.userAgent, this.profile.metadata);
-		if (ok) console.debug("[bard-player] identity override applied:", this.profile.userAgent);
-		else console.warn("[bard-player] identity override failed:", this.profile.userAgent);
+		if (ok) debugLog(`identity "${this.mode}" applied`, this.profile.userAgent, this.profile.metadata?.brands ?? "(no client hints)");
+		else console.warn(`[bard-player] identity "${this.mode}" override failed:`, this.profile.userAgent);
 	}
 
 	private checkSignIn(url: string | undefined): void {
-		if (!url?.startsWith("https://accounts.google.com")) return;
-		console.debug("[bard-player] sign-in navigation:", url.split("?")[0]);
+		if (!url) return;
+		const signIn = url.startsWith("https://accounts.google.com");
+		if (signIn) debugLog("sign-in page:", redactUrl(url));
+		else if (this.inSignIn) debugLog("left the sign-in pages for", redactUrl(url));
+		this.inSignIn = signIn;
+		if (!signIn) return;
 		if (isSignInRejected(url) && url !== this.lastRejectedUrl) {
 			this.lastRejectedUrl = url;
 			this.onSignInRejected();

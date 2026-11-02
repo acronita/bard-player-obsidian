@@ -1,19 +1,17 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildProfile, chromeVersionAt, firefoxVersionAt, isSignInRejected, nextUaMode } from "../src/player/userAgent.ts";
+import { buildProfile, firefoxVersionAt, isEngineOutdated, isSignInRejected, nextUaMode } from "../src/player/userAgent.ts";
 
 const ENGINE = { chrome: "120.0.6099.291", electron: "28.3.3" };
 
 const OCT_2024 = Date.UTC(2024, 9, 15); // Chrome 130 shipped around here
 const OCT_2026 = Date.UTC(2026, 9, 31);
 
-test("version estimates track the release cadence, lagging slightly", () => {
-	const v = chromeVersionAt(OCT_2024);
-	assert.ok(v >= 127 && v <= 130, `chrome ${v}`);
-	assert.ok(chromeVersionAt(OCT_2026) > 145);
+test("firefox version estimate tracks the release cadence, lagging slightly", () => {
+	const v = firefoxVersionAt(OCT_2024);
+	assert.ok(v >= 128 && v <= 131, `firefox ${v}`);
 	assert.ok(firefoxVersionAt(OCT_2026) > 145);
-	assert.equal(chromeVersionAt(Date.UTC(2023, 0, 1)), 120);
-	assert.equal(chromeVersionAt(OCT_2024, 200), 200, "never older than the embedded Chromium");
+	assert.equal(firefoxVersionAt(Date.UTC(2023, 0, 1)), 121);
 });
 
 test("chrome profile is consistent between UA string and client hints", () => {
@@ -24,7 +22,12 @@ test("chrome profile is consistent between UA string and client hints", () => {
 	assert.ok(p.metadata);
 	assert.equal(p.metadata.platform, "Windows");
 	assert.deepEqual(p.metadata.brands.find((b) => b.brand === "Google Chrome")?.version, major);
-	assert.equal(p.metadata.fullVersion, `${major}.0.0.0`);
+	assert.equal(p.metadata.fullVersion, ENGINE.chrome);
+});
+
+test("chrome profile claims the engine's own version, never a newer one", () => {
+	const p = buildProfile("chrome", "windows", OCT_2026, ENGINE);
+	assert.match(p.userAgent, /Chrome\/120\.0\.0\.0 /);
 });
 
 test("firefox profile sends no client hints", () => {
@@ -41,9 +44,17 @@ test("electron profile reports the real engine without emulation", () => {
 });
 
 test("identities are tried in order and then run out", () => {
-	assert.equal(nextUaMode("chrome"), "firefox");
-	assert.equal(nextUaMode("firefox"), "electron");
+	assert.equal(nextUaMode("firefox"), "chrome");
+	assert.equal(nextUaMode("chrome"), "electron");
 	assert.equal(nextUaMode("electron"), null);
+});
+
+test("flags engines about a year or more behind current Chrome", () => {
+	const NOV_2026 = Date.UTC(2026, 10, 2);
+	assert.ok(isEngineOutdated("120.0.6099.291", NOV_2026), "refused by Google in late 2026");
+	assert.ok(!isEngineOutdated("150.0.7871.250", NOV_2026), "accepted by Google in late 2026");
+	assert.ok(!isEngineOutdated("120.0.6099.291", Date.UTC(2024, 0, 15)), "current at the time");
+	assert.ok(!isEngineOutdated("", NOV_2026), "unknown engine is not flagged");
 });
 
 test("detects Google's rejected sign-in page", () => {
