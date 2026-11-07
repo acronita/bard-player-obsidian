@@ -32,18 +32,25 @@ export const INJECT_SRC = `(() => {
 		const data = call(p, "getVideoData") || {};
 		const likeEl = document.querySelector("ytmusic-player-bar ytmusic-like-button-renderer");
 		const vol = call(p, "getVolume");
+		const time = call(p, "getCurrentTime");
+		const isAd = !!(p && p.classList && p.classList.contains("ad-showing"));
+		// getDuration() and the media element can report only the part loaded so far; the player
+		// response carries the track's real length (Pear Desktop reads it the same way).
+		const details = (call(p, "getPlayerResponse") || {}).videoDetails || {};
+		const length = !isAd && details.videoId && details.videoId === data.video_id ? Number(details.lengthSeconds) : 0;
 		return {
 			title: (md && md.title) || data.title || null,
 			artist: (md && md.artist) || data.author || null,
 			album: md ? md.album : null,
 			artwork: art,
 			paused: v ? v.paused : null,
-			position: v ? v.currentTime : null,
-			duration: v && Number.isFinite(v.duration) ? v.duration : call(p, "getDuration") || null,
+			// The media element can span several tracks; only the player API's clock is per track.
+			position: typeof time === "number" ? time : v ? v.currentTime : null,
+			duration: (length > 0 ? length : 0) || call(p, "getDuration") || (v && Number.isFinite(v.duration) ? v.duration : null),
 			volume: typeof vol === "number" ? vol : v ? v.volume * 100 : null,
 			muted: call(p, "isMuted") === true || (v ? v.muted : false),
 			liked: likeEl ? likeEl.getAttribute("like-status") : null,
-			isAd: !!(p && p.classList && p.classList.contains("ad-showing")),
+			isAd,
 			videoId: data.video_id || watchParam("v") || null,
 			playlistId: call(p, "getPlaylistId") || data.list || watchParam("list") || null,
 			ts: Date.now()
