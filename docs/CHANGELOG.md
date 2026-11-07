@@ -2,6 +2,15 @@
 
 All notable changes to Bard Player. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.2.1 — 2026-11-07
+
+### Fixed
+- The elapsed time and progress bar restart with each track instead of adding up across a sequence
+  of tracks: position and duration now come from the YouTube player, with the media element only as
+  a fallback.
+- The total time shows the whole track from the start instead of growing as the track loads: it
+  now comes from the track's length in the player response.
+
 ## 1.2.0 — 2026-11-02
 
 ### Added

@@ -1,6 +1,6 @@
 {
   "name": "bard-player",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Music streaming player with mini player and Windows taskbar controls",
   "main": "main.js",
   "type": "module",
