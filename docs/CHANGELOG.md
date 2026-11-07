@@ -2,7 +2,7 @@
 
 All notable changes to Bard Player. Versions follow [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## 1.2.1 — 2026-11-07
 
 ### Fixed
 - The elapsed time and progress bar restart with each track instead of adding up across a sequence
